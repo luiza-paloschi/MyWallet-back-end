@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 import joi from 'joi';
 import bcrypt from 'bcrypt';
 import { v4 as uuid } from 'uuid';
+import dayjs from "dayjs"
 
 dotenv.config();
 
@@ -98,6 +99,82 @@ app.post("/", async (req, res) => {
     res.status(500).send('Algo deu errado')
   }
 })
+
+app.get("/home", async(req,res) => {
+  const { authorization } = req.headers;
+  const token = authorization?.replace('Bearer ', '');
+
+  if(!token) return res.sendStatus(401);
+
+  const session = await db.collection("sessions").findOne({ token });
+            
+  if (!session) {
+      return res.sendStatus(401);
+  }
+
+	const registries = await db.collection("wallets").find({ 
+		accountId: session.userId 
+	}).toArray()
+  console.log(registries)
+  res.send(registries)
+})
+
+app.post("/nova-entrada", async(req, res) =>{
+  const { authorization } = req.headers;
+  const {value, description} = req.body
+  const newValue = Number(value.replace(",", "."))
+
+  const token = authorization?.replace('Bearer ', '');
+
+  if(!token) return res.sendStatus(401);
+
+  const session = await db.collection("sessions").findOne({ token });
+            
+  if (!session) return res.sendStatus(401);
+
+  const entrySchema = joi.object({
+    value: joi.number().required(),
+    description: joi.string().required(),
+  });
+
+  const { error } = entrySchema.validate({value: newValue, description}, { abortEarly: false });
+  if (error) return res.status(422).send(error);
+
+  await db.collection("wallets").insertOne(
+    { accountId: session.userId, value: newValue, description, type: "entry", date: `${dayjs().date()}/${dayjs().month() + 1}`})
+
+  res.sendStatus(201)
+
+})
+
+app.post("/nova-saida", async(req, res) =>{
+  const { authorization } = req.headers;
+  const {value, description} = req.body
+  const newValue = Number(value.replace(",", "."))
+
+  const token = authorization?.replace('Bearer ', '');
+
+  if(!token) return res.sendStatus(401);
+
+  const session = await db.collection("sessions").findOne({ token });
+            
+  if (!session) return res.sendStatus(401);
+
+  const outflowSchema = joi.object({
+    value: joi.number().required(),
+    description: joi.string().required(),
+  });
+
+  const { error } = outflowSchema.validate({value: newValue, description}, { abortEarly: false });
+  if (error) return res.status(422).send(error);
+
+  await db.collection("wallets").insertOne(
+    { accountId: session.userId, value: newValue, description, type: "outflow", date: `${dayjs().date()}/${dayjs().month() + 1}`})
+
+  res.sendStatus(201)
+
+})
+
 
 const PORT = 5000
 
