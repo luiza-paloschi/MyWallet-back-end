@@ -22,4 +22,4 @@ export const loginSchema = joi.object({
   }).messages(
     {"string.base": "todos os campos devem estar em formato de texto"},
     {"string.empty": "todos os campos devem estar preenchidos"}
-    );;
+    );
